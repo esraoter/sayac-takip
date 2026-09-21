@@ -1,121 +1,165 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
+import { useState, useEffect } from 'react'
 import './App.css'
+import atollaLogo from './assets/atolla_logo_re.svg'
+
+const API_URL = import.meta.env.VITE_API_URL
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [devices, setDevices] = useState([])
+  const [newDeviceName, setNewDeviceName] = useState('')
+  const [selectedDeviceId, setSelectedDeviceId] = useState(null)
+  const [readings, setReadings] = useState([])
+  const [newReadingValue, setNewReadingValue] = useState('')
+  const [error, setError] = useState('')
+
+  const loadDevices = () => {
+    fetch(`${API_URL}/devices`, { cache: 'no-store' })
+      .then((res) => res.json())
+      .then(setDevices)
+      .catch(() => setError('Cihazlar yüklenemedi.'))
+  }
+
+  useEffect(() => {
+    loadDevices()
+  }, [])
+
+  const addDevice = (e) => {
+    e.preventDefault()
+    if (!newDeviceName.trim()) return
+    fetch(`${API_URL}/devices`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newDeviceName }),
+    })
+      .then(() => {
+        setNewDeviceName('')
+        setError('')
+        loadDevices()
+      })
+      .catch(() => setError('Cihaz eklenemedi.'))
+  }
+
+  const deleteDevice = (id) => {
+    fetch(`${API_URL}/devices/${id}`, { method: 'DELETE' })
+      .then(() => {
+        loadDevices()
+        if (selectedDeviceId === id) {
+          setSelectedDeviceId(null)
+          setReadings([])
+        }
+      })
+      .catch(() => setError('Cihaz silinemedi.'))
+  }
+
+  const selectDevice = (id) => {
+    setSelectedDeviceId(id)
+    setError('')
+    fetch(`${API_URL}/devices/${id}/readings`, { cache: 'no-store' })
+      .then((res) => res.json())
+      .then(setReadings)
+      .catch(() => setError('Okumalar yüklenemedi.'))
+  }
+
+  const addReading = (e) => {
+    e.preventDefault()
+    if (!newReadingValue) return
+    fetch(`${API_URL}/devices/${selectedDeviceId}/readings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        value: parseFloat(newReadingValue),
+        date: new Date().toISOString(),
+      }),
+    }).then((res) => {
+      if (!res.ok) {
+        setError('Okuma eklenemedi (negatif değer olamaz)!')
+        return
+      }
+      setNewReadingValue('')
+      setError('')
+      selectDevice(selectedDeviceId)
+    })
+  }
+
+  const selectedDevice = devices.find((d) => d.id === selectedDeviceId)
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="app">
+      <div className="brand-logo">
+        <img src={atollaLogo} alt="Atollatech Bilişim" />
+      </div>
 
-      <div className="ticks"></div>
+      <h1>SAYAÇ TAKİP</h1>
+      <p className="subtitle">Cihazlarını ekle, okumalarını kaydet.</p>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
+      {error && <div className="error-banner">{error}</div>}
+
+      <div className="card">
+        <h2>Cihazlar</h2>
+        <form className="form-row" onSubmit={addDevice}>
+          <input
+            value={newDeviceName}
+            onChange={(e) => setNewDeviceName(e.target.value)}
+            placeholder="Örn. Elektrik Sayacı 1"
+          />
+          <button type="submit">Ekle</button>
+        </form>
+
+        {devices.length === 0 ? (
+          <p className="empty-state">Henüz cihaz eklenmedi.</p>
+        ) : (
+          <ul className="device-list">
+            {devices.map((d) => (
+              <li
+                key={d.id}
+                className={`device-item ${d.id === selectedDeviceId ? 'selected' : ''}`}
+              >
+                <button
+                  className="device-name-btn"
+                  onClick={() => selectDevice(d.id)}
+                >
+                  {d.name}
+                </button>
+                <button
+                  className="delete-btn"
+                  onClick={() => deleteDevice(d.id)}
+                >
+                  Sil
+                </button>
+              </li>
+            ))}
           </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        )}
+      </div>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      {selectedDeviceId && (
+        <div className="card">
+          <h2>{selectedDevice?.name} — okumalar</h2>
+          <form className="form-row" onSubmit={addReading}>
+            <input
+              type="number"
+              value={newReadingValue}
+              onChange={(e) => setNewReadingValue(e.target.value)}
+              placeholder="Okuma değeri"
+            />
+            <button type="submit">Okuma ekle</button>
+          </form>
+
+          {readings.length === 0 ? (
+            <p className="empty-state">Henüz okuma eklenmedi.</p>
+          ) : (
+            <ul className="reading-list">
+              {readings.map((r) => (
+                <li key={r.id} className="reading-item">
+                  <span className="reading-value">{r.value}</span>
+                  <span>{new Date(r.date).toLocaleString('tr-TR')}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
