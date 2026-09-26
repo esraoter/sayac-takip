@@ -27,6 +27,7 @@ app.UseCors("AllowFrontend");
 
 // --- Cihaz (Device) Endpoint'leri ---
 
+app.MapGet("/", () => "Sayaç Takip API çalışıyor.");
 app.MapGet("/devices", () => Store.Devices);
 
 app.MapPost("/devices", (Device device) =>
